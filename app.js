@@ -199,11 +199,12 @@ app.listen(PORT, () => {
 
 // Glitch projesinin uykuya geçmemesi için 4 dakikada bir ping at
 setInterval(() => {
-    require('https').get('https://magenta-absorbing-redcurrant.glitch.me/');
+  require('https').get('https://magenta-absorbing-redcurrant.glitch.me/');
 }, 4 * 60 * 1000); // 4 dakika
 
+// BURAYA EKLE: Bot token'ının değerini logla
+console.log('BOT_TOKEN değeri:', process.env.BOT_TOKEN ? 'Token mevcut (gizlendi)' : 'Token mevcut değil veya boş!');
 
-// BURAYI GÜNCELLE: client.login() çağrısına .catch() ekle
 client.login(process.env.BOT_TOKEN)
     .catch(error => {
         console.error('Discord botuna bağlanırken bir hata oluştu:', error);
