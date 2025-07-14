@@ -33,7 +33,7 @@
     "ytdl-core": "^2.1.5"
   },
   "engines": {
-    "node": "16.x"
+    "node": ">18.0.0"
   },
   "repository": {
     "url": "https://glitch.com/edit/#!/glitch-hello-node"
