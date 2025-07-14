@@ -146,7 +146,7 @@ client.on('ready', () => {
     console.log(`Bot başarılı bir şekilde giriş yaptı!`);
     
 
-  // Geçici sıfırlama - Bot kapalı olurda çalışmazsa kullanılabilir
+ // Geçici sıfırlama - Bot kapalı olurda çalışmazsa kullanılabilir
  // resetWeeklyData(); // Haftalık
  // resetMonthlyData(); // Aylık
   
@@ -188,20 +188,29 @@ const app = express();
 
 // Ana route
 app.get("/", (request, response) => {
-  response.sendStatus(200);
+    response.sendStatus(200);
 });
 
 // Glitch portunu kullan (öncelikli), yoksa 3000
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Web sunucusu çalışıyor. PORT: ${PORT}`);
+    console.log(`Web sunucusu çalışıyor. PORT: ${PORT}`);
 });
 
 // Glitch projesinin uykuya geçmemesi için 4 dakikada bir ping at
 setInterval(() => {
-  require('https').get('https://magenta-absorbing-redcurrant.glitch.me/');
+    require('https').get('https://magenta-absorbing-redcurrant.glitch.me/');
 }, 4 * 60 * 1000); // 4 dakika
 
 
-
-client.login(process.env.BOT_TOKEN);
+// BURAYI GÜNCELLE: client.login() çağrısına .catch() ekle
+client.login(process.env.BOT_TOKEN)
+    .catch(error => {
+        console.error('Discord botuna bağlanırken bir hata oluştu:', error);
+        // Hatanın türüne göre ek mesajlar ekleyebilirsin
+        if (error.code === 'TOKEN_INVALID') {
+            console.error('Hata: Bot token\'ı geçersiz veya eksik. Lütfen Render ortam değişkenlerini kontrol edin.');
+        } else if (error.code === 'DISALLOWED_INTENTS') {
+            console.error('Hata: Gerekli intent\'ler Discord Geliştirici Portalı\'nda etkinleştirilmemiş olabilir.');
+        }
+    });
