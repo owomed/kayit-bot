@@ -40,12 +40,18 @@ module.exports = {
 
             // Kayıt yapan kişinin kayıt sayısını güncelle
             const authorId = message.author.id;
-            db.add(`weekly_${authorId}`, 1);
-            db.add(`monthly_${authorId}`, 1);
+
+            // weekly_ kaydını güncelle
+            let currentWeekly = db.get(`weekly_${authorId}`) || 0; // Mevcut haftalık kaydı al, yoksa 0 varsay
+            db.set(`weekly_${authorId}`, currentWeekly + 1); // Yeni değeri set et
+
+            // monthly_ kaydını güncelle
+            let currentMonthly = db.get(`monthly_${authorId}`) || 0; // Mevcut aylık kaydı al, yoksa 0 varsay
+            db.set(`monthly_${authorId}`, currentMonthly + 1); // Yeni değeri set et
 
             // Embed mesajını oluştur
             const embed = new MessageEmbed()
-                .setAuthor('MED Kayıt')
+                .setAuthor({ name: 'MED Kayıt' }) // v13 veya v14 için .setAuthor({ name: '...' }) şeklinde
                 .setTitle(`${targetUser.user.username}, az önce kayıt edildi. <a:med_AAPeekOwO:1235316737294204958>`)
                 .setDescription(`╰> Kayıt edilen kişi ${targetUser}.`)
                 .addFields(
