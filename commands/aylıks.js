@@ -1,28 +1,27 @@
 const { MessageEmbed } = require('discord.js');
-const { Enmap } = require('enmap');
-const { SQLite } = require('enmap-sqlite'); // Bu satırı ekliyoruz
+const fs = require('fs');
+const path = require('path');
 
-const provider = new SQLite({ dataDirectory: './database' });
-const db = new Enmap({ name: "kayitlar", provider: provider });
-
-// 'kayitlar' isminde yeni bir enmap veritabanı oluşturuyoruz
-const db = new Enmap({ name: "kayitlar" });
+// Aylık verilerin tutulduğu JSON dosyasının yolu
+const monthlyDbPath = path.join(__dirname, '../database/monthly.json');
 
 module.exports = {
     name: 'aylık-sıralama',
     aliases: ['monthly-top'],
     description: 'Aylık kayıt sıralamasını gösterir.',
     async execute(client, message, args) {
-        // Enmap'in tüm verileri döndürmesi için `fetchEverything()` metodu kullanılır
-        const allData = await db.fetchEverything();
-        
-        // Enmap verisi bir Map nesnesi olduğundan, filtreleme yapmak için Array'e dönüştürmek gerekir
-        // .filter() metodu ile aylık kayıtları alıyoruz.
-        const monthlyData = allData.filter((value, key) => key.startsWith('monthly_'));
-        
-        // Sıralama işlemi Map üzerindeki verilerle yapılır
-        // Map'i önce Array'e dönüştürüp sonra sıralıyoruz
-        const sortedData = [...monthlyData.entries()].sort(([, a], [, b]) => b - a);
+        // Dosyadan aylık verileri oku
+        let monthlyData = {};
+        try {
+            const fileData = fs.readFileSync(monthlyDbPath, 'utf8');
+            monthlyData = JSON.parse(fileData);
+        } catch (error) {
+            console.error('Aylık veritabanı dosyası okuma hatası:', error);
+            return message.reply('Aylık sıralama verileri şu anda alınamıyor.');
+        }
+
+        // Verileri sırala
+        const sortedData = Object.entries(monthlyData).sort(([, a], [, b]) => b - a);
 
         let embed = new MessageEmbed()
             .setColor('#ff9900')
@@ -31,19 +30,23 @@ module.exports = {
             .setDescription('Bu ay en çok kayıt yapan kullanıcılar:')
             .setTimestamp();
 
-        for (let i = 0; i < sortedData.length; i++) {
-            const userId = sortedData[i][0].split('_')[1];
-            let user = await client.users.fetch(userId).catch(() => null);
-            const userTag = user ? user.tag : 'Bilinmeyen Kullanıcı';
-            const kayitSayisi = sortedData[i][1];
-
-            embed.addField(
-                `${i + 1}. ${userTag}`,
-                `Kayıt Sayısı: \`${kayitSayisi}\`\n <:med_kivircikok:1246364420896985119> ${user ? `<@${userId}>` : 'Bilinmeyen Etiket'}`,
-                false
-            );
+        if (sortedData.length === 0) {
+            embed.setDescription('Bu ay henüz kayıt yapan bir kullanıcı yok.');
+        } else {
+            for (let i = 0; i < sortedData.length; i++) {
+                const userId = sortedData[i][0];
+                let user = await client.users.fetch(userId).catch(() => null);
+                const userTag = user ? user.tag : 'Bilinmeyen Kullanıcı';
+                const kayitSayisi = sortedData[i][1];
+    
+                embed.addField(
+                    `${i + 1}. ${userTag}`,
+                    `Kayıt Sayısı: \`${kayitSayisi}\`\n <:med_kivircikok:1246364420896985119> ${user ? `<@${userId}>` : 'Bilinmeyen Etiket'}`,
+                    false
+                );
+            }
         }
-
+        
         message.channel.send({ embeds: [embed] });
     }
 };
