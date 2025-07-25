@@ -1,5 +1,5 @@
 const { MessageEmbed } = require('discord.js');
-const Enmap = require('enmap');
+const { Enmap } = require('enmap');
 
 // 'kayitlar' isminde yeni bir enmap veritabanı oluşturuyoruz
 const db = new Enmap({ name: "kayitlar" });
