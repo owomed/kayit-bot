@@ -1,13 +1,27 @@
 const { Client, Collection, Intents } = require('discord.js');
 const fs = require('fs');
-const { Enmap } = require('enmap');
-const { SQLite } = require('enmap-sqlite'); // Bu satırı ekliyoruz
-
-const provider = new SQLite({ dataDirectory: './database' });
-const db = new Enmap({ name: "kayitlar", provider: provider });
 const { prefix } = require('./Settings/config.json');
 require('dotenv').config();
 const cron = require('node-cron');
+const path = require('path');
+
+// Veritabanı dosyalarının yolu ve isimleri
+const dbPath = path.join(__dirname, 'database');
+const monthlyDbPath = path.join(dbPath, 'monthly.json');
+const weeklyDbPath = path.join(dbPath, 'weekly.json');
+
+// Veritabanı dosyalarını oluşturma fonksiyonu
+function initializeDatabase() {
+    if (!fs.existsSync(dbPath)) {
+        fs.mkdirSync(dbPath);
+    }
+    if (!fs.existsSync(monthlyDbPath)) {
+        fs.writeFileSync(monthlyDbPath, JSON.stringify({}, null, 2));
+    }
+    if (!fs.existsSync(weeklyDbPath)) {
+        fs.writeFileSync(weeklyDbPath, JSON.stringify({}, null, 2));
+    }
+}
 
 // Bot ve komutlar için temel yapılandırma
 const client = new Client({
@@ -146,15 +160,11 @@ const statuses = [
 ];
 let statusIndex = 0;
 
-// Enmap veritabanı bağlantısı
-const db = new Enmap({ name: "kayitlar" });
-
 client.on('ready', () => {
     console.log(`Bot başarılı bir şekilde giriş yaptı!`);
     
-    // Geçici sıfırlama - Bot kapalı olurda çalışmazsa kullanılabilir
-    // resetWeeklyData(); // Haftalık
-    // resetMonthlyData(); // Aylık
+    // Uygulama başladığında veritabanı dosyalarını kontrol et ve oluştur
+    initializeDatabase();
     
     // Haftalık sıfırlama: Her Pazartesi 00:00'da
     cron.schedule('0 0 * * 1', () => {
@@ -175,18 +185,16 @@ client.on('ready', () => {
     }, 20000); // Her 20 saniyede bir güncelle
 });
 
-// Sıfırlama fonksiyonları Enmap ile uyumlu hale getirildi
-async function resetWeeklyData() {
+// JSON verilerini sıfırlama fonksiyonları
+function resetWeeklyData() {
     console.log('Haftalık veriler sıfırlanıyor...');
-    const allData = await db.fetchEverything();
-    allData.filter((value, key) => key.startsWith('weekly_')).forEach((value, key) => db.delete(key));
+    fs.writeFileSync(weeklyDbPath, JSON.stringify({}, null, 2));
     console.log('Haftalık veriler sıfırlandı.');
 }
 
-async function resetMonthlyData() {
+function resetMonthlyData() {
     console.log('Aylık veriler sıfırlanıyor...');
-    const allData = await db.fetchEverything();
-    allData.filter((value, key) => key.startsWith('monthly_')).forEach((value, key) => db.delete(key));
+    fs.writeFileSync(monthlyDbPath, JSON.stringify({}, null, 2));
     console.log('Aylık veriler sıfırlandı.');
 }
 
