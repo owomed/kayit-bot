@@ -1,14 +1,20 @@
 const { MessageEmbed } = require('discord.js');
-const db = require('quick.db');
+const { QuickDB } = require('quick.db');
+
+// Yeni quick.db API'sini kullanmak için db objesini yeniden oluştur
+const db = new QuickDB();
 
 module.exports = {
     name: 'aylık-sıralama',
     aliases: ['monthly-top'],
     description: 'Aylık kayıt sıralamasını gösterir.',
     async execute(client, message, args) {
-        let allData = db.all();
-        let monthlyData = allData.filter(data => data.ID.startsWith('monthly_'));
-        let sortedData = monthlyData.sort((a, b) => b.data - a.data);
+        // Yeni API'de tüm verileri almak için .all() yerine .all() metodunu kullanıyoruz.
+        // Bu metot tüm anahtar-değer çiftlerini döndürür.
+        const allData = await db.all();
+        
+        const monthlyData = allData.filter(data => data.id.startsWith('monthly_'));
+        const sortedData = monthlyData.sort((a, b) => b.value - a.value);
 
         let embed = new MessageEmbed()
             .setColor('#ff9900')
@@ -18,12 +24,13 @@ module.exports = {
             .setTimestamp();
 
         for (let i = 0; i < sortedData.length; i++) {
-            let userId = sortedData[i].ID.split('_')[1];
+            const userId = sortedData[i].id.split('_')[1];
             let user = await client.users.fetch(userId).catch(() => null);
-            let userTag = user ? user.tag : 'Bilinmeyen Kullanıcı';
+            const userTag = user ? user.tag : 'Bilinmeyen Kullanıcı';
+
             embed.addField(
                 `${i + 1}. ${userTag}`,
-                `Kayıt Sayısı: \`${sortedData[i].data}\`\n <:med_kivircikok:1246364420896985119> ${user ? `<@${userId}>` : 'Bilinmeyen Etiket'}`,
+                `Kayıt Sayısı: \`${sortedData[i].value}\`\n <:med_kivircikok:1246364420896985119> ${user ? `<@${userId}>` : 'Bilinmeyen Etiket'}`,
                 false
             );
         }
