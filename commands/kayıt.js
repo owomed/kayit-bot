@@ -1,5 +1,9 @@
 const { MessageEmbed } = require('discord.js');
-const Enmap = require('enmap');
+const { Enmap } = require('enmap');
+const { SQLite } = require('enmap-sqlite'); // Bu satırı ekliyoruz
+
+const provider = new SQLite({ dataDirectory: './database' });
+const db = new Enmap({ name: "kayitlar", provider: provider });
 
 // 'kayitlar' isminde yeni bir enmap veritabanı oluşturuyoruz
 const db = new Enmap({ name: "kayitlar" });
