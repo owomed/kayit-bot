@@ -1,14 +1,19 @@
 const { MessageEmbed } = require('discord.js');
-const db = require('quick.db');
+const { QuickDB } = require('quick.db');
+
+// Yeni quick.db API'sini kullanmak için db objesini yeniden oluştur
+const db = new QuickDB();
 
 module.exports = {
     name: 'haftalık-sıralama',
     aliases: ['weekly-top'],
     description: 'Haftalık kayıt sıralamasını gösterir.',
     async execute(client, message, args) {
-        let allData = db.all();
-        let weeklyData = allData.filter(data => data.ID.startsWith('weekly_'));
-        let sortedData = weeklyData.sort((a, b) => b.data - a.data);
+        // Yeni API'de tüm verileri almak için .all() metodunu kullanıyoruz.
+        const allData = await db.all();
+        
+        const weeklyData = allData.filter(data => data.id.startsWith('weekly_'));
+        const sortedData = weeklyData.sort((a, b) => b.value - a.value);
 
         let embed = new MessageEmbed()
             .setColor('#0099ff')
@@ -18,12 +23,13 @@ module.exports = {
             .setTimestamp();
 
         for (let i = 0; i < sortedData.length; i++) {
-            let userId = sortedData[i].ID.split('_')[1];
+            const userId = sortedData[i].id.split('_')[1];
             let user = await client.users.fetch(userId).catch(() => null);
-            let userTag = user ? user.tag : 'Bilinmeyen Kullanıcı';
+            const userTag = user ? user.tag : 'Bilinmeyen Kullanıcı';
+            
             embed.addField(
                 `${i + 1}. ${userTag}`,
-                `Kayıt Sayısı: \`${sortedData[i].data}\`\n <:med_kivircikok:1246364420896985119> ${user ? `<@${userId}>` : 'Bilinmeyen Etiket'}`,
+                `Kayıt Sayısı: \`${sortedData[i].value}\`\n <:med_kivircikok:1246364420896985119> ${user ? `<@${userId}>` : 'Bilinmeyen Etiket'}`,
                 false
             );
         }
