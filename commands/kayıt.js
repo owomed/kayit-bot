@@ -1,12 +1,29 @@
 const { MessageEmbed } = require('discord.js');
-const { Enmap } = require('enmap');
-const { SQLite } = require('enmap-sqlite'); // Bu satırı ekliyoruz
+const fs = require('fs');
+const path = require('path');
 
-const provider = new SQLite({ dataDirectory: './database' });
-const db = new Enmap({ name: "kayitlar", provider: provider });
+// Aylık ve Haftalık verilerin tutulduğu JSON dosyalarının yolları
+const monthlyDbPath = path.join(__dirname, '../database/monthly.json');
+const weeklyDbPath = path.join(__dirname, '../database/weekly.json');
 
-// 'kayitlar' isminde yeni bir enmap veritabanı oluşturuyoruz
-const db = new Enmap({ name: "kayitlar" });
+// JSON dosyasından veriyi okuyan ve yazan yardımcı fonksiyonlar
+function readData(filePath) {
+    try {
+        const fileData = fs.readFileSync(filePath, 'utf8');
+        return JSON.parse(fileData);
+    } catch (error) {
+        console.error(`Dosya okuma hatası (${filePath}):`, error);
+        return {};
+    }
+}
+
+function writeData(filePath, data) {
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    } catch (error) {
+        console.error(`Dosya yazma hatası (${filePath}):`, error);
+    }
+}
 
 module.exports = {
     name: 'kayıt',
@@ -48,14 +65,15 @@ module.exports = {
             // Kayıt yapan kişinin kayıt sayısını güncelle
             const authorId = message.author.id;
 
-            // Enmap'in .ensure() metodu veritabanında bir anahtar yoksa varsayılan değerle oluşturur.
-            // Bu, .get() metodunu kullanırken verinin null olmasını engeller.
-            db.ensure(`weekly_${authorId}`, 0);
-            db.ensure(`monthly_${authorId}`, 0);
+            // Haftalık veriyi oku, güncelle ve kaydet
+            let weeklyData = readData(weeklyDbPath);
+            weeklyData[authorId] = (weeklyData[authorId] || 0) + 1;
+            writeData(weeklyDbPath, weeklyData);
 
-            // Kayıt sayısını 1 artırıp veritabanına kaydediyoruz
-            db.set(`weekly_${authorId}`, db.get(`weekly_${authorId}`) + 1);
-            db.set(`monthly_${authorId}`, db.get(`monthly_${authorId}`) + 1);
+            // Aylık veriyi oku, güncelle ve kaydet
+            let monthlyData = readData(monthlyDbPath);
+            monthlyData[authorId] = (monthlyData[authorId] || 0) + 1;
+            writeData(monthlyDbPath, monthlyData);
 
             // Embed mesajını oluştur
             const embed = new MessageEmbed()
