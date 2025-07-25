@@ -1,6 +1,6 @@
 const { Client, Collection, Intents } = require('discord.js');
 const fs = require('fs');
-const Enmap = require('enmap'); // quick.db yerine enmap kullanıyoruz
+const { Enmap } = require('enmap');
 const { prefix } = require('./Settings/config.json');
 require('dotenv').config();
 const cron = require('node-cron');
