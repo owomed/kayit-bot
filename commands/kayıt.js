@@ -1,5 +1,8 @@
 const { MessageEmbed } = require('discord.js');
-const db = require('quick.db');
+const Enmap = require('enmap');
+
+// 'kayitlar' isminde yeni bir enmap veritabanı oluşturuyoruz
+const db = new Enmap({ name: "kayitlar" });
 
 module.exports = {
     name: 'kayıt',
@@ -41,17 +44,18 @@ module.exports = {
             // Kayıt yapan kişinin kayıt sayısını güncelle
             const authorId = message.author.id;
 
-            // weekly_ kaydını güncelle
-            let currentWeekly = db.get(`weekly_${authorId}`) || 0; // Mevcut haftalık kaydı al, yoksa 0 varsay
-            db.set(`weekly_${authorId}`, currentWeekly + 1); // Yeni değeri set et
+            // Enmap'in .ensure() metodu veritabanında bir anahtar yoksa varsayılan değerle oluşturur.
+            // Bu, .get() metodunu kullanırken verinin null olmasını engeller.
+            db.ensure(`weekly_${authorId}`, 0);
+            db.ensure(`monthly_${authorId}`, 0);
 
-            // monthly_ kaydını güncelle
-            let currentMonthly = db.get(`monthly_${authorId}`) || 0; // Mevcut aylık kaydı al, yoksa 0 varsay
-            db.set(`monthly_${authorId}`, currentMonthly + 1); // Yeni değeri set et
+            // Kayıt sayısını 1 artırıp veritabanına kaydediyoruz
+            db.set(`weekly_${authorId}`, db.get(`weekly_${authorId}`) + 1);
+            db.set(`monthly_${authorId}`, db.get(`monthly_${authorId}`) + 1);
 
             // Embed mesajını oluştur
             const embed = new MessageEmbed()
-                .setAuthor({ name: 'MED Kayıt' }) // v13 veya v14 için .setAuthor({ name: '...' }) şeklinde
+                .setAuthor({ name: 'MED Kayıt' })
                 .setTitle(`${targetUser.user.username}, az önce kayıt edildi. <a:med_AAPeekOwO:1235316737294204958>`)
                 .setDescription(`╰> Kayıt edilen kişi ${targetUser}.`)
                 .addFields(
