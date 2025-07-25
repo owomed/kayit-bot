@@ -1,6 +1,6 @@
 const { Client, Collection, Intents } = require('discord.js');
 const fs = require('fs');
-const db = require('quick.db');
+const Enmap = require('enmap'); // quick.db yerine enmap kullanıyoruz
 const { prefix } = require('./Settings/config.json');
 require('dotenv').config();
 const cron = require('node-cron');
@@ -142,14 +142,16 @@ const statuses = [
 ];
 let statusIndex = 0;
 
+// Enmap veritabanı bağlantısı
+const db = new Enmap({ name: "kayitlar" });
+
 client.on('ready', () => {
     console.log(`Bot başarılı bir şekilde giriş yaptı!`);
     
-
- // Geçici sıfırlama - Bot kapalı olurda çalışmazsa kullanılabilir
- // resetWeeklyData(); // Haftalık
- // resetMonthlyData(); // Aylık
-  
+    // Geçici sıfırlama - Bot kapalı olurda çalışmazsa kullanılabilir
+    // resetWeeklyData(); // Haftalık
+    // resetMonthlyData(); // Aylık
+    
     // Haftalık sıfırlama: Her Pazartesi 00:00'da
     cron.schedule('0 0 * * 1', () => {
         resetWeeklyData();
@@ -169,17 +171,18 @@ client.on('ready', () => {
     }, 20000); // Her 20 saniyede bir güncelle
 });
 
-function resetWeeklyData() {
-    let allData = db.all();
-    let weeklyData = allData.filter(data => data.ID.startsWith('weekly_'));
-    weeklyData.forEach(data => db.delete(data.ID));
+// Sıfırlama fonksiyonları Enmap ile uyumlu hale getirildi
+async function resetWeeklyData() {
+    console.log('Haftalık veriler sıfırlanıyor...');
+    const allData = await db.fetchEverything();
+    allData.filter((value, key) => key.startsWith('weekly_')).forEach((value, key) => db.delete(key));
     console.log('Haftalık veriler sıfırlandı.');
 }
 
-function resetMonthlyData() {
-    let allData = db.all();
-    let monthlyData = allData.filter(data => data.ID.startsWith('monthly_'));
-    monthlyData.forEach(data => db.delete(data.ID));
+async function resetMonthlyData() {
+    console.log('Aylık veriler sıfırlanıyor...');
+    const allData = await db.fetchEverything();
+    allData.filter((value, key) => key.startsWith('monthly_')).forEach((value, key) => db.delete(key));
     console.log('Aylık veriler sıfırlandı.');
 }
 
