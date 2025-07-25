@@ -1,6 +1,10 @@
 const { Client, Collection, Intents } = require('discord.js');
 const fs = require('fs');
 const { Enmap } = require('enmap');
+const { SQLite } = require('enmap-sqlite'); // Bu satırı ekliyoruz
+
+const provider = new SQLite({ dataDirectory: './database' });
+const db = new Enmap({ name: "kayitlar", provider: provider });
 const { prefix } = require('./Settings/config.json');
 require('dotenv').config();
 const cron = require('node-cron');
