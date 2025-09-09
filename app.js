@@ -228,7 +228,7 @@ client.tarihHesapla = (date) => {
     return `${string} önce`;
 };
 
-client.login(process.env.DISCORD_TOKEN)
+client.login(process.env.BOT_TOKEN)
     .catch(error => {
         console.error('❌ Discord botuna bağlanırken bir hata oluştu:', error);
         if (error.code === 'TokenInvalid') {
