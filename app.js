@@ -9,8 +9,7 @@ require('dotenv').config();
 // MongoDB modellerini içe aktarın
 const MonthlyCount = require('./models/MonthlySchema');
 const WeeklyCount = require('./models/WeeklySchema');
-const TotalCount = require('./models/TotalSchema');
-const TeyitSchema = require('./models/TeyitSchema');
+
 
 // Komutlar ve diğer dosyalar için yollar
 const commandFiles = fs.readdirSync('./commands/').filter(file => file.endsWith('.js'));
