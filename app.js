@@ -126,8 +126,8 @@ client.on('ready', async () => {
     client.user.setPresence({
         status: PresenceUpdateStatus.Online,
         activities: [{
-            name: 'customstatus', // Bu sabit bir ad, değiştirilemez
-            state: 'OwO 💜 MED', // Özel durum metni
+            name: 'OwO 💜 MED ilgileniyor', // Bu sabit bir ad, değiştirilemez
+            state: 'customstatus', // Özel durum metni
             type: ActivityType.CustomStatus // Bu, "Özel Durum"u ayarlar
         }],
     });
