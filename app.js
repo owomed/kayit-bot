@@ -1,51 +1,56 @@
-const { Client, Collection, Intents } = require('discord.js');
+// Gerekli modülleri Discord.js v14'e uygun şekilde içe aktarın
+const { Client, Collection, GatewayIntentBits, Partials, ActivityType, PresenceUpdateStatus } = require('discord.js');
 const fs = require('fs');
-const { prefix } = require('./Settings/config.json');
-require('dotenv').config();
-const cron = require('node-cron');
 const path = require('path');
+const cron = require('node-cron');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
-// Veritabanı dosyalarının yolu ve isimleri
-const dbPath = path.join(__dirname, 'database');
-const monthlyDbPath = path.join(dbPath, 'monthly.json');
-const weeklyDbPath = path.join(dbPath, 'weekly.json');
+// MongoDB modellerini içe aktarın
+const MonthlyCount = require('./models/MonthlySchema');
+const WeeklyCount = require('./models/WeeklySchema');
+const TotalCount = require('./models/TotalSchema');
 
-// Veritabanı dosyalarını oluşturma fonksiyonu
-function initializeDatabase() {
-    if (!fs.existsSync(dbPath)) {
-        fs.mkdirSync(dbPath);
-    }
-    if (!fs.existsSync(monthlyDbPath)) {
-        fs.writeFileSync(monthlyDbPath, JSON.stringify({}, null, 2));
-    }
-    if (!fs.existsSync(weeklyDbPath)) {
-        fs.writeFileSync(weeklyDbPath, JSON.stringify({}, null, 2));
-    }
-}
+// Komutlar ve diğer dosyalar için yollar
+const commandFiles = fs.readdirSync('./commands/').filter(file => file.endsWith('.js'));
+const eventFiles = fs.readdirSync('./events/').filter(file => file.endsWith('.js'));
+const { prefix } = require('./Settings/config.json');
 
 // Bot ve komutlar için temel yapılandırma
 const client = new Client({
     intents: [
-        Intents.FLAGS.GUILDS,
-        Intents.FLAGS.GUILD_MEMBERS,
-        Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.GUILD_VOICE_STATES,
-        Intents.FLAGS.MESSAGE_CONTENT,
-        Intents.FLAGS.DIRECT_MESSAGES
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages,
     ],
+    partials: [Partials.Channel, Partials.Message],
 });
+
 client.commands = new Collection();
 client.idler = require('./Settings/idler.json');
+const allSlashCommands = []; // Slash komutlarını depolamak için dizi
 
-// Komut dosyalarını yükleyin
-const commandFiles = fs.readdirSync('./commands/').filter(file => file.endsWith('.js'));
+// MongoDB'ye bağlanma
+mongoose.connect(process.env.MONGO_URI)
+.then(() => {
+    console.log('✅ MongoDB\'ye başarıyla bağlandı.');
+})
+.catch(err => {
+    console.error('❌ MongoDB bağlantı hatası:', err);
+});
+
+// --- Komut ve Olay Yükleme Sistemi ---
 for (const file of commandFiles) {
     const command = require(`./commands/${file}`);
     client.commands.set(command.name, command);
+    if (command.data) {
+        allSlashCommands.push(command.data.toJSON());
+    }
 }
 
-// Olay dosyalarını yükleyin
-const eventFiles = fs.readdirSync('./events/').filter(file => file.endsWith('.js'));
 for (const file of eventFiles) {
     const event = require(`./events/${file}`);
     if (event.once) {
@@ -55,7 +60,7 @@ for (const file of eventFiles) {
     }
 }
 
-// Mesaj olayını işleyin
+// --- Komut İşleme Olayları ---
 client.on('messageCreate', async message => {
     if (!message.content.startsWith(prefix) || message.author.bot || message.channel.type === 'dm') return;
 
@@ -63,17 +68,94 @@ client.on('messageCreate', async message => {
     const commandName = args.shift().toLowerCase();
     const command = client.commands.get(commandName) || client.commands.find(x => x.aliases && x.aliases.includes(commandName));
 
-    if (!command) return;
+    if (!command || !command.execute) return;
 
     try {
         await command.execute(client, message, args);
     } catch (error) {
-        console.error('Komut çalıştırma hatası:', error);
-        message.reply('Komut çalıştırılırken bir hata oluştu.');
+        console.error('Prefix komut çalıştırma hatası:', error);
+        await message.reply('Komut çalıştırılırken bir hata oluştu.');
     }
 });
 
-// Tarih formatı ve hesaplama fonksiyonları
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isCommand()) return;
+
+    const command = client.commands.get(interaction.commandName);
+
+    if (!command || !command.slashExecute) return;
+
+    try {
+        await command.slashExecute(interaction);
+    } catch (error) {
+        console.error('Slash komut çalıştırma hatası:', error);
+        await interaction.reply({ content: 'Komut çalıştırılırken bir hata oluştu.', ephemeral: true });
+    }
+});
+
+
+// --- Cron Görevleri ve Veritabanı Sıfırlama ---
+client.on('ready', async () => {
+    console.log(`✅ Bot başarılı bir şekilde ${client.user.tag} olarak giriş yaptı!`);
+
+    const { REST, Routes } = require('discord.js');
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+
+    try {
+        const guildId = process.env.GUILD_ID;
+        if (guildId) {
+            await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body: allSlashCommands });
+            console.log('✅ Sunucuya özgü slash komutları başarıyla yüklendi.');
+        } else {
+            await rest.put(Routes.applicationCommands(client.user.id), { body: allSlashCommands });
+            console.log('✅ Global slash komutları başarıyla yüklendi.');
+        }
+    } catch (error) {
+        console.error('❌ Slash komutlarını yüklerken hata oluştu:', error);
+    }
+
+    cron.schedule('0 0 * * 1', async () => {
+        await resetWeeklyData();
+    }, { timezone: "Europe/Istanbul" });
+
+    cron.schedule('0 0 1 * *', async () => {
+        await resetMonthlyData();
+    }, { timezone: "Europe/Istanbul" });
+
+    // Tek bir durum belirle ve ayarla
+    client.user.setPresence({
+        status: PresenceUpdateStatus.Online,
+        activities: [{
+            name: 'customstatus', // Bu sabit bir ad, değiştirilemez
+            state: 'OwO 💜 MED', // Özel durum metni
+            type: ActivityType.CustomStatus // Bu, "Özel Durum"u ayarlar
+        }],
+    });
+});
+
+// --- MongoDB Verilerini Sıfırlama Fonksiyonları ---
+async function resetWeeklyData() {
+    console.log('Haftalık veriler sıfırlanıyor...');
+    await WeeklyCount.deleteMany({});
+    console.log('✅ Haftalık veriler sıfırlandı.');
+}
+
+async function resetMonthlyData() {
+    console.log('Aylık veriler sıfırlanıyor...');
+    await MonthlyCount.deleteMany({});
+    console.log('✅ Aylık veriler sıfırlandı.');
+}
+
+// --- Web Sunucusu ve Diğer Fonksiyonlar ---
+const express = require('express');
+const app = express();
+app.get("/", (request, response) => { response.sendStatus(200); });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => { console.log(`Web sunucusu çalışıyor. PORT: ${PORT}`); });
+setInterval(() => { require('https').get('https://' + process.env.RENDER_EXTERNAL_HOSTNAME); }, 4 * 60 * 1000);
+
+// Gerekli fonksiyonlar (tarihHesapla vb.)
+// ... (Mevcut kodunuzdaki tarih fonksiyonları buraya eklenecek)
 Date.prototype.toTurkishFormatDate = function (format) {
     let date = this,
         day = date.getDate(),
@@ -146,87 +228,12 @@ client.tarihHesapla = (date) => {
     return `${string} önce`;
 };
 
-// Durumları ayarla
-const statuses = [
-    { name: 'MED Kayıt', type: 'STREAMING', url: "https://www.twitch.tv/owomed" },
-    { name: 'MED 💚 hicckimse', type: 'STREAMING', url: "https://www.twitch.tv/owomed" },
-    { name: 'hicckimse 💛 MED', type: 'STREAMING', url: "https://www.twitch.tv/owomed" },
-    { name: 'MED ❤️ hicckimse', type: 'STREAMING', url: "https://www.twitch.tv/owomed" },
-    { name: 'hicckimse 🤍 MED', type: 'STREAMING', url: "https://www.twitch.tv/owomed" },
-    { name: 'MED 🤎 hicckimse', type: 'STREAMING', url: "https://www.twitch.tv/owomed" },
-    { name: 'hicckimse 💜 MED', type: 'STREAMING', url: "https://www.twitch.tv/owomed" },
-    { name: 'MED 🩵 hicckimse', type: 'STREAMING', url: "https://www.twitch.tv/owomed" },
-    { name: 'hicckimse 💙 MED', type: 'STREAMING', url: "https://www.twitch.tv/owomed" }
-];
-let statusIndex = 0;
-
-client.on('ready', () => {
-    console.log(`Bot başarılı bir şekilde giriş yaptı!`);
-    
-    // Uygulama başladığında veritabanı dosyalarını kontrol et ve oluştur
-    initializeDatabase();
-    
-    // Haftalık sıfırlama: Her Pazartesi 00:00'da
-    cron.schedule('0 0 * * 1', () => {
-        resetWeeklyData();
-    });
-
-    // Aylık sıfırlama: Her Ayın 1'inde 00:00'da
-    cron.schedule('0 0 1 * *', () => {
-        resetMonthlyData();
-    });
-
-    setInterval(() => {
-        const status = statuses[statusIndex];
-        client.user.setPresence({
-            activities: [{ name: status.name, type: status.type, url: status.url }],
-        });
-        statusIndex = (statusIndex + 1) % statuses.length;
-    }, 20000); // Her 20 saniyede bir güncelle
-});
-
-// JSON verilerini sıfırlama fonksiyonları
-function resetWeeklyData() {
-    console.log('Haftalık veriler sıfırlanıyor...');
-    fs.writeFileSync(weeklyDbPath, JSON.stringify({}, null, 2));
-    console.log('Haftalık veriler sıfırlandı.');
-}
-
-function resetMonthlyData() {
-    console.log('Aylık veriler sıfırlanıyor...');
-    fs.writeFileSync(monthlyDbPath, JSON.stringify({}, null, 2));
-    console.log('Aylık veriler sıfırlandı.');
-}
-
-const express = require('express');
-const app = express();
-
-// Ana route
-app.get("/", (request, response) => {
-    response.sendStatus(200);
-});
-
-// Glitch portunu kullan (öncelikli), yoksa 3000
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Web sunucusu çalışıyor. PORT: ${PORT}`);
-});
-
-// Glitch projesinin uykuya geçmemesi için 4 dakikada bir ping at
-setInterval(() => {
-  require('https').get('https://magenta-absorbing-redcurrant.glitch.me/');
-}, 4 * 60 * 1000); // 4 dakika
-
-// BURAYA EKLE: Bot token'ının değerini logla
-console.log('BOT_TOKEN değeri:', process.env.BOT_TOKEN ? 'Token mevcut (gizlendi)' : 'Token mevcut değil veya boş!');
-
-client.login(process.env.BOT_TOKEN)
+client.login(process.env.DISCORD_TOKEN)
     .catch(error => {
-        console.error('Discord botuna bağlanırken bir hata oluştu:', error);
-        // Hatanın türüne göre ek mesajlar ekleyebilirsin
-        if (error.code === 'TOKEN_INVALID') {
+        console.error('❌ Discord botuna bağlanırken bir hata oluştu:', error);
+        if (error.code === 'TokenInvalid') {
             console.error('Hata: Bot token\'ı geçersiz veya eksik. Lütfen Render ortam değişkenlerini kontrol edin.');
-        } else if (error.code === 'DISALLOWED_INTENTS') {
+        } else if (error.code === 'DisallowedIntents') {
             console.error('Hata: Gerekli intent\'ler Discord Geliştirici Portalı\'nda etkinleştirilmemiş olabilir.');
         }
     });
