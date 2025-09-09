@@ -124,11 +124,11 @@ client.on('ready', async () => {
 
     // Tek bir durum belirle ve ayarla
     client.user.setPresence({
-        status: PresenceUpdateStatus.Online,
+        status: "online",
         activities: [{
-            name: 'OwO 💜 MED ilgileniyor', // Bu sabit bir ad, değiştirilemez
-            state: 'customstatus', // Özel durum metni
-            type: ActivityType.CustomStatus // Bu, "Özel Durum"u ayarlar
+            name: 'customstatus', // Bu sabit bir ad, değiştirilemez
+            state: 'OwO 💜 MED ilgileniyor', // Özel durum metni
+            type: ActivityType.Custom // Bu, "Özel Durum"u ayarlar
         }],
     });
 });
