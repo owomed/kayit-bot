@@ -127,7 +127,7 @@ client.on('ready', async () => {
         status: "online",
         activities: [{
             name: 'customstatus', // Bu sabit bir ad, değiştirilemez
-            state: 'OwO 💜 MED ilgileniyor', // Özel durum metni
+            state: 'OwO 💜 MED ile ilgileniyor', // Özel durum metni
             type: ActivityType.Custom // Bu, "Özel Durum"u ayarlar
         }],
     });
