@@ -1,52 +1,74 @@
-const { MessageEmbed } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const WeeklyCount = require('../models/WeeklySchema'); // Yeni MongoDB modelini içe aktar
 
-// Haftalık verilerin tutulduğu JSON dosyasının yolu
-const weeklyDbPath = path.join(__dirname, '../database/weekly.json');
+// Hem prefix hem de slash komutu için kullanacağımız ana fonksiyon
+async function handleCommand(interactionOrMessage) {
+    const client = interactionOrMessage.client;
+    
+    // MongoDB'den en çok kayıt yapan 10 kullanıcıyı al
+    const weeklyData = await WeeklyCount.find().sort({ count: -1 }).limit(10);
+    
+    const embed = new EmbedBuilder()
+        .setColor('#0099ff')
+        .setTitle('Haftalık Kayıt Sıralaması')
+        .setThumbnail(interactionOrMessage.guild.iconURL({ dynamic: true }))
+        .setDescription('Bu hafta en çok kayıt yapan kullanıcılar:')
+        .setTimestamp();
+
+    if (weeklyData.length === 0) {
+        embed.setDescription('Bu hafta henüz kayıt yapan bir kullanıcı yok.');
+    } else {
+        // MongoDB'den gelen veriyi döngüye al
+        for (let i = 0; i < weeklyData.length; i++) {
+            const data = weeklyData[i];
+            const userId = data.userId;
+            const kayitSayisi = data.count;
+            
+            let user;
+            try {
+                user = await client.users.fetch(userId);
+            } catch (err) {
+                user = null; // Kullanıcı bulunamazsa null olarak ayarla
+            }
+
+            const userTag = user ? user.tag : 'Bilinmeyen Kullanıcı';
+            
+            embed.addFields({
+                name: `${i + 1}. ${userTag}`,
+                value: `Kayıt Sayısı: \`${kayitSayisi}\`\n <:med_kivircikok:1246364420896985119> ${user ? `<@${userId}>` : 'Bilinmeyen Etiket'}`,
+                inline: false
+            });
+        }
+    }
+    
+    const replyPayload = { embeds: [embed] };
+    
+    // Komutun türüne göre yanıt ver
+    if (interactionOrMessage.isCommand?.()) {
+        await interactionOrMessage.reply(replyPayload);
+    } else {
+        await interactionOrMessage.reply(replyPayload);
+    }
+}
 
 module.exports = {
+    // Slash komutu için gerekli tanımlamalar
+    data: new SlashCommandBuilder()
+        .setName('haftalık-sıralama')
+        .setDescription('Haftalık kayıt sıralamasını gösterir.'),
+    
+    // Prefix komutu için gerekli tanımlamalar
     name: 'haftalık-sıralama',
     aliases: ['weekly-top'],
     description: 'Haftalık kayıt sıralamasını gösterir.',
+    
+    // Prefix komutunu çalıştıracak metod
     async execute(client, message, args) {
-        // Dosyadan haftalık verileri oku
-        let weeklyData = {};
-        try {
-            const fileData = fs.readFileSync(weeklyDbPath, 'utf8');
-            weeklyData = JSON.parse(fileData);
-        } catch (error) {
-            console.error('Haftalık veritabanı dosyası okuma hatası:', error);
-            return message.reply('Haftalık sıralama verileri şu anda alınamıyor.');
-        }
+        await handleCommand(message);
+    },
 
-        // Verileri sırala
-        const sortedData = Object.entries(weeklyData).sort(([, a], [, b]) => b - a);
-
-        let embed = new MessageEmbed()
-            .setColor('#0099ff')
-            .setTitle('Haftalık Kayıt Sıralaması')
-            .setThumbnail(message.guild.iconURL({ dynamic: true }))
-            .setDescription('Bu hafta en çok kayıt yapan kullanıcılar:')
-            .setTimestamp();
-        
-        if (sortedData.length === 0) {
-            embed.setDescription('Bu hafta henüz kayıt yapan bir kullanıcı yok.');
-        } else {
-            for (let i = 0; i < sortedData.length; i++) {
-                const userId = sortedData[i][0];
-                let user = await client.users.fetch(userId).catch(() => null);
-                const userTag = user ? user.tag : 'Bilinmeyen Kullanıcı';
-                const kayitSayisi = sortedData[i][1];
-
-                embed.addField(
-                    `${i + 1}. ${userTag}`,
-                    `Kayıt Sayısı: \`${kayitSayisi}\`\n <:med_kivircikok:1246364420896985119> ${user ? `<@${userId}>` : 'Bilinmeyen Etiket'}`,
-                    false
-                );
-            }
-        }
-
-        message.channel.send({ embeds: [embed] });
+    // Slash komutunu çalıştıracak metod
+    async slashExecute(interaction) {
+        await handleCommand(interaction);
     }
 };
