@@ -70,7 +70,7 @@ module.exports = {
 
 <:owo_ok1:1254500571583611012> Sunucuda sohbete başlamadan önce \`BİLGİ\` kategorisine göz atmanı öneririz çünkü bir sıkıntı olduğu zaman yönetim kadromuz bu kurallar ve bilgiler çerçevesinde sizinle ilgilenecektir.
 
-<:PandaHmm1:1254511149857247232> Kayıt sorumlularımız eğer gelmezlerse <@&${yetkiRol.id}> yazarak tekrar etiketleyebilirsiniz.
+<:PandaHmm1:1254511149857247232> Kayıt sorumlularımız eğer gelmezlerse <@&1189127683653783552> yazarak tekrar etiketleyebilirsiniz.
 
 **Bilgiler:**
 
