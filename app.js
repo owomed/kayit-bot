@@ -9,7 +9,7 @@ require('dotenv').config();
 // MongoDB modellerini içe aktarın
 const MonthlyCount = require('./models/MonthlySchema');
 const WeeklyCount = require('./models/WeeklySchema');
-const totalCount = require('./models/TotalSchema');
+const TotalCount = require('./models/TotalSchema');
 
 
 // Komutlar ve diğer dosyalar için yollar
