@@ -1,6 +1,7 @@
 const { EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const MonthlyCount = require('../models/MonthlySchema');
 const WeeklyCount = require('../models/WeeklySchema');
+const TotalCount = require('../models/TotalSchema'); // <-- Eklenecek satır
 
 
 // Hem prefix hem de slash komutu için kullanacağımız ana fonksiyon
